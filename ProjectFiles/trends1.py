@@ -8,6 +8,7 @@ from geo import us_states, geo_distance, make_position, longitude, latitude
 from string import ascii_letters
 from ucb import main, trace, interact, log_current_line
 import re
+import csv
 
 def extract_words(text):
     """Return the words in a tweet, not including punctuation.
@@ -50,11 +51,13 @@ def find_closest_state(tweet, state_centers):
 
     """
     stateCode = None
-    stateDistance = geo_distance(tweet_location(tweet),state_centers["OR"])
-    for key, value in state_centers:
-        if geo_distance(tweet_location(tweet),value) <= stateDistance:
-            stateCode = key
     
+    stateDistance = geo_distance(tweet_location(tweet),state_centers["OR"])
+    for key in state_centers:
+        distance = geo_distance(tweet_location(tweet),state_centers[key])
+        if distance <= stateDistance:
+            stateCode = key
+            stateDistance = distance
     return stateCode   
 
 def group_tweets_by_state(tweets):
@@ -66,7 +69,11 @@ def group_tweets_by_state(tweets):
     tweets -- a sequence of tweet abstract data types
 
     """
-            
+    
+    tweets_by_state = {key:[] for key in us_states.keys()} 
+    for t in tweets:
+        state = find_closest_state(t,{n: find_center(s) for n, s in us_states.items()})
+        tweets_by_state[state].append(t)
     return tweets_by_state
 
 def average_sentiments(tweets_by_state):
@@ -82,7 +89,19 @@ def average_sentiments(tweets_by_state):
     tweets_by_state -- A dictionary from state names to lists of tweets
    
     """
-      
+    
+    averaged_state_sentiments = {key:None for key in tweets_by_state} 
+    for key in tweets_by_state:
+        total = 0
+        for tweet in tweets_by_state[key]:
+            total += analyze_tweet_sentiment(tweet)
+        length = len(tweets_by_state[key])
+        if length <= 0:
+            total = 0
+        else:
+            total = total/length
+            averaged_state_sentiments[key] = total
+        total = 0
         
     return averaged_state_sentiments
 
@@ -104,8 +123,9 @@ def ExportToCSV(term=""):
     tweetDict = group_tweets_by_state(tweets)
     sentDict = average_sentiments(tweetDict)
     # Your code to export sentDict to .CSV file
-
     
+    with open('sentDictFile','w') as file:
+        [file.write('{0},{1}\n'.format(key,value)) for key, value in sentDict.items()]
 #----------------------------------------------------------------------#
 #----------------------------------------------------------------------#
 #------      You shouldn't change anything beyond this line!     ------#
